@@ -1,38 +1,101 @@
 const { request, response } = require('express');
-const { cnn } = require('../database/config');
 const { querieSerene } = require('../queries/querieSerene');
+const { querieAlert } = require('../queries/querieAlert');
 
 const getListAlerts = async (req = request, res = response) => {
     try {
 
-        const pool = cnn();
-
         const { obtenerAlertas } = querieSerene();
 
-        (await pool).query(`${obtenerAlertas}`, (err, result) => {
+        req.getConnection((err, conn) => {
             if (err) {
-                res.status(404).json({
+
+                return res.status(404).json({
                     ok: false,
-                    msg: 'Error, hable con el administrador'
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
                 });
-                return;
             }
 
-            res.json({
-                ok: true,
-                alertas: result[0]
-            });
+            conn.query(obtenerAlertas, async (error, alerts) => {
+                if (error) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Error 1, hable con el administrador'
+                        }
+                    });
+                }
 
+                res.json({
+                    ok: true,
+                    alertas: alerts[0]
+                });
+
+            })
         });
 
     } catch (error) {
         res.status(404).json({
             ok: false,
-            msg: 'Error catch, Hable con el administrador'
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
+            }
+        });
+    }
+}
+
+const updateAlerta = async (req = request, res = response) => {
+    try {
+
+        const { id, estado } = req.body;
+
+        const { actualizarAlerta } = querieAlert(id, { estado });
+
+        req.getConnection((err, conn) => {
+            if (err) {
+                return res.status(404).json({
+                    ok: false,
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
+                });
+            }
+
+            conn.query(actualizarAlerta, async (error) => {
+                if (error) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Error 2, hable con el administrador'
+                        }
+                    });
+                }
+
+                return res.status(200).json({
+                    ok: true
+                });
+            })
+        })
+
+    } catch (error) {
+        res.status(404).json({
+            ok: false,
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
+            }
         });
     }
 }
 
 module.exports = {
-    getListAlerts
+    getListAlerts,
+    updateAlerta
 }

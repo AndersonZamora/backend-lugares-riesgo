@@ -1,22 +1,13 @@
 const { Router } = require('express');
 const { check } = require('express-validator');
-const { validarCampos } = require('../middlewares/validar-campos');
-const { upContraCitizen, addAlertCitizen, listAlertCitizen } = require('../controllers/cCitizen');
 const { validarJWT } = require('../middlewares/validar-jwt');
+const { validarCampos } = require('../middlewares/validar-campos');
+const { addAlertCitizen, listAlertCitizen } = require('../controllers/cCitizen');
+
 
 const router = Router();
 
 router.use(validarJWT);
-
-router.post('/suru-koshin',
-    [
-        check('email', 'Email es obligatorio').isEmail(),
-        check('password', 'Error, revise sus credenciales').not().isEmpty().isLength({ min: 4, max: 15 }),
-        check('newPas', 'Error, revise sus credenciales').not().isEmpty().isLength({ min: 4, max: 15 }),
-        validarCampos
-    ],
-    upContraCitizen
-);
 
 router.use('/suru-tame',
     [

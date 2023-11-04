@@ -8,7 +8,10 @@ const validarJWT = (req, res = response, next) => {
     if (!token) {
         return res.status(401).json({
             ok: false,
-            msg: 'No hay token en la peticion'
+            er: false,
+            erros: {
+                msg: 'No hay token en la peticion'
+            }
         });
     };
 
@@ -25,7 +28,10 @@ const validarJWT = (req, res = response, next) => {
     } catch (error) {
         return res.status(401).json({
             ok: false,
-            msg: 'No no válido'
+            er: false,
+            erros: {
+                msg: 'No no válido'
+            }
         });
     }
 

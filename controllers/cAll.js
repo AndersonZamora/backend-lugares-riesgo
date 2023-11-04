@@ -1,54 +1,74 @@
 const { response, request } = require('express');
 const bcryptj = require('bcryptjs');
-const { cnn } = require('../database/config');
-const { querieCitizen } = require('../queries/querieCitizen');
 const { generarJWT } = require('../helpers/jwt');
+const { querieCitizen } = require('../queries/querieCitizen');
 const { querieHero } = require('../queries/querieHero');
-const { getuser } = require('../helpers/getuser');
 const { querieSerene } = require('../queries/querieSerene');
+const { getuser } = require('../helpers/getuser');
 
-const registrarCitizen = async (req, res = response) => {
+const registrarCitizen = async (req = request, res = response) => {
 
     try {
 
-        const { nombres, apellidos, celular, correo, contrasenia } = req.body;
+        const { nombres, apellidos, celular, correo, contrasenia, dni } = req.body;
 
         const salt = bcryptj.genSaltSync();
         const newContra = bcryptj.hashSync(contrasenia, salt);
 
-        const { crearCitizen } = querieCitizen({ nombres, apellidos, celular, correo, contrasenia: newContra });
+        const { crearCitizen } = querieCitizen({ nombres, apellidos, celular, correo, contrasenia: newContra, dni });
 
-        const pool = cnn();
-
-        (await pool).query(`${crearCitizen}`, (error, result) => {
-
-            if (error) {
-                console.log(error)
+        req.getConnection((err, conn) => {
+            if (err) {
                 return res.status(404).json({
                     ok: false,
-                    msg: `Error 1, hable con el administrador ${error.code}`
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
                 });
             }
+            conn.query(crearCitizen, async (error, citizen) => {
+                if (error) {
+                    const { sqlMessage } = error;
+                    const email = sqlMessage.includes('correo') ? 'Correo ya en uso' : '';
+                    const cel = sqlMessage.includes('celular') ? 'Celular ya registrado' : '';
+                    const dn = sqlMessage.includes('dni') ? 'DNI ya registrado' : '';
 
-            const { id } = result[0][0];
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            email,
+                            cel,
+                            dn,
+                            msg: ''
+                        }
+                    });
+                }
 
-            if (id <= 0 || id == undefined) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Error al registrar, hable con el administrador'
+                const { id } = citizen[0][0];
+
+                if (id <= 0 || id == undefined) {
+                    return res.status(404).json({
+                        ok: false,
+                        msg: 'Error al registrar, hable con el administrador'
+                    });
+                }
+
+                return res.json({
+                    ok: true
                 });
-            }
+            })
 
-            return res.json({
-                ok: true,
-                uid: id
-            });
-        });
+        })
 
     } catch (error) {
         res.status(404).json({
             ok: false,
-            msg: 'Error catch, Hable con el administrador'
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
+            }
         });
     }
 }
@@ -58,54 +78,75 @@ const loginCitizen = async (req, res = response) => {
 
         const { email, password } = req.body;
 
-        const pool = cnn();
-
         const { loginCitizen } = querieCitizen({ correo: email });
 
-        (await pool).query(loginCitizen, async (err, rows) => {
+        req.getConnection((err, conn) => {
             if (err) {
                 return res.status(404).json({
                     ok: false,
-                    msg: 'Error 1, hable con el administrador'
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
                 });
             }
 
-            if (rows[0][0] === undefined || rows[0][0].length <= 0) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Credenciales incorrectas'
+            conn.query(loginCitizen, async (err, citizen) => {
+                if (err) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Error 2, hable con el administrador'
+                        }
+                    });
+                }
+
+                if (citizen[0][0] === undefined || citizen[0][0].length <= 0) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Credenciales incorrectas'
+                        }
+                    });
+                }
+
+                const datos = citizen[0][0];
+
+                const { Id, nombres, apellidos, contrasenia, rol } = datos;
+
+                const valid = bcryptj.compareSync(password, contrasenia);
+
+                if (!valid) {
+                    return res.status(400).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Credenciales incorrectas'
+                        }
+                    });
+                }
+
+                const token = await generarJWT(Id, `${nombres} ${apellidos}`, rol);
+
+                return res.json({
+                    ok: true,
+                    uid: Id,
+                    name: `${nombres} ${apellidos}`,
+                    token,
+                    rol
                 });
-            }
-
-            const datos = rows[0][0];
-
-            const { Id, nombres, apellidos, contrasenia, rol } = datos;
-
-            const valid = bcryptj.compareSync(password, contrasenia);
-
-            if (!valid) {
-                return res.status(400).json({
-                    ok: false,
-                    msg: 'Credenciales incorrectas'
-                });
-            }
-
-            const token = await generarJWT(Id, `${nombres} ${apellidos}`, rol);
-
-            return res.json({
-                ok: true,
-                uid: Id,
-                name: `${nombres} ${apellidos}`,
-                token,
-                rol
-            })
-
-        });
+            });
+        })
 
     } catch (error) {
         res.status(404).json({
             ok: false,
-            msg: 'Error catch, Hable con el administrador'
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
+            }
         });
     }
 }
@@ -121,7 +162,10 @@ const registrarHero = async (req, res = response) => {
         if (secr !== state) {
             return res.status(404).json({
                 ok: false,
-                msg: 'Sin privilegios'
+                er: false,
+                erros: {
+                    msg: 'Sin privilegios'
+                }
             });
         }
 
@@ -130,107 +174,142 @@ const registrarHero = async (req, res = response) => {
 
         const { crearHero } = querieHero({ nombres, apellidos, celular, correo, contrasenia: newContra });
 
-        const pool = cnn();
-
-        (await pool).query(`${crearHero}`, (err, result) => {
+        req.getConnection((err, conn) => {
             if (err) {
                 return res.status(404).json({
                     ok: false,
-                    msg: 'Error, hable con el administrador'
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
                 });
             }
 
-            const { id } = result[0][0];
+            conn.query(crearHero, async (error) => {
+                if (error) {
+                    const { sqlMessage } = error;
+                    const email = sqlMessage.includes('correo') ? 'Correo ya en uso' : '';
+                    const cel = sqlMessage.includes('celular') ? 'Celular ya registrado' : '';
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            email,
+                            cel,
+                            msg: ''
+                        }
+                    });
+                }
 
-            if (id <= 0 || id == undefined) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Error al registrar, hable con el administrador'
+                return res.json({
+                    ok: true
                 });
-            }
 
-            return res.json({
-                ok: true,
-                uid: id
-            });
-        });
+            })
+        })
 
     } catch (error) {
         res.status(404).json({
             ok: false,
-            msg: 'Error catch, Hable con el administrador'
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
+            }
         });
     }
 }
 
 const loginHero = async (req, res = response) => {
+
     try {
 
         const { email, password } = req.body;
 
-        const pool = cnn();
-
         const { loginHero } = querieHero({ correo: email });
 
-        (await pool).query(loginHero, async (err, rows) => {
+        req.getConnection((err, conn) => {
             if (err) {
                 return res.status(404).json({
                     ok: false,
-                    msg: 'Error 1, hable con el administrador'
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
                 });
             }
 
-            if (rows[0][0] === undefined || rows[0][0].length <= 0) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Credenciales incorrectas'
-                });
-            }
+            conn.query(loginHero, async (err, central) => {
+                if (err) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Error 2, hable con el administrador'
+                        }
+                    });
+                }
 
-            const datos = rows[0][0];
+                if (central[0][0] === undefined || central[0][0].length <= 0) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Credenciales incorrectas'
+                        }
+                    });
+                }
 
-            const { Id, nombres, apellidos, celular, contrasenia, rol } = datos;
+                const datos = central[0][0];
 
-            const valid = bcryptj.compareSync(password, contrasenia);
+                const { Id, nombres, apellidos, celular, contrasenia, rol } = datos;
 
-            if (!valid) {
-                return res.status(400).json({
-                    ok: false,
-                    msg: 'Credenciales incorrectas'
-                });
-            }
+                const valid = bcryptj.compareSync(password, contrasenia);
 
-            const token = await generarJWT(Id, `${nombres} ${apellidos}`, rol);
+                if (!valid) {
+                    return res.status(400).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Credenciales incorrectas'
+                        }
+                    });
+                }
 
-            return res.json({
-                ok: true,
-                uid: Id,
-                name: `${nombres} ${apellidos}`,
-                celular,
-                token,
-                rol,
+                const token = await generarJWT(Id, `${nombres} ${apellidos}`, rol);
+
+                return res.json({
+                    ok: true,
+                    uid: Id,
+                    name: `${nombres} ${apellidos}`,
+                    celular,
+                    token,
+                    rol,
+                })
+
             })
 
-        });
+        })
 
     } catch (error) {
         res.status(404).json({
             ok: false,
-            msg: 'Error catch, Hable con el administrador'
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
+            }
         });
     }
 }
 
 const loginSerene = async (req, res = response) => {
+
     try {
 
         const { email, password } = req.body;
 
-        const pool = cnn();
-
         const { logSerene } = querieSerene(0, '', { correo: email });
 
-        (await pool).query(logSerene, async (err, rows) => {
+        req.getConnection((err, conn) => {
             if (err) {
                 return res.status(404).json({
                     ok: false,
@@ -238,37 +317,45 @@ const loginSerene = async (req, res = response) => {
                 });
             }
 
-            if (rows[0][0] === undefined || rows[0][0].length <= 0) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Credenciales incorrectas'
-                });
-            }
+            conn.query(logSerene, async (error, serene) => {
+                if (error) {
+                    return res.status(404).json({
+                        ok: false,
+                        msg: 'Error 2, hable con el administrador'
+                    });
+                }
 
-            const datos = rows[0][0];
+                if (serene[0][0] === undefined || serene[0][0].length <= 0) {
+                    return res.status(404).json({
+                        ok: false,
+                        msg: 'Credenciales incorrectas'
+                    });
+                }
 
-            const { Id, nombres, apellidos, celular, contrasenia, rol } = datos;
+                const datos = serene[0][0];
 
-            const valid = bcryptj.compareSync(password, contrasenia);
+                const { Id, nombres, apellidos, celular, contrasenia, rol } = datos;
 
-            if (!valid) {
-                return res.status(400).json({
-                    ok: false,
-                    msg: 'Credenciales incorrectas'
-                });
-            }
+                const valid = bcryptj.compareSync(password, contrasenia);
 
-            const token = await generarJWT(Id, `${nombres} ${apellidos}`, rol);
+                if (!valid) {
+                    return res.status(400).json({
+                        ok: false,
+                        msg: 'Credenciales incorrectas'
+                    });
+                }
 
-            return res.json({
-                ok: true,
-                uid: Id,
-                name: `${nombres} ${apellidos}`,
-                celular,
-                token,
-                rol,
+                const token = await generarJWT(Id, `${nombres} ${apellidos}`, rol);
+
+                return res.json({
+                    ok: true,
+                    uid: Id,
+                    name: `${nombres} ${apellidos}`,
+                    celular,
+                    token,
+                    rol,
+                })
             })
-
         });
 
     } catch (error) {

@@ -1,7 +1,5 @@
 const { request, response } = require('express');
-const { cnn } = require('../database/config');
 const { queriePlaces } = require('../queries/queriePlaces');
-const { getuser } = require('../helpers/getuser');
 
 const createPlaces = async (req = request, res = response) => {
 
@@ -9,47 +7,54 @@ const createPlaces = async (req = request, res = response) => {
 
         const { crearLugar } = queriePlaces({ ...req.body });
 
-        const { role } = getuser(req.header('x-token'));
-
-        if (role != process.env.ROLE1) {
+        req.getConnection((err, conn) => {
             if (err) {
                 return res.status(404).json({
                     ok: false,
-                    msg: 'Error 1, hable con el administrador'
-                });
-            }
-        }
-
-        const pool = cnn();
-
-        (await pool).query(`${crearLugar}`, (err, result) => {
-
-            if (err) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Error 2, hable con el administrador'
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
                 });
             }
 
-            const { id } = result[0][0];
+            conn.query(crearLugar, async (error, places) => {
+                if (error) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Error 2, hable con el administrador'
+                        }
+                    });
+                }
 
-            if (id <= 0 || id == undefined) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Error al registrar 3, hable con el administrador'
+                const { id } = places[0][0];
+
+                if (id <= 0 || id == undefined) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Error al registrar, hable con el administrador',
+                        }
+                    });
+                }
+
+                return res.status(200).json({
+                    ok: true,
+                    uid: id
                 });
-            }
-
-            return res.json({
-                ok: true,
-                uid: id
-            });
-        });
+            })
+        })
 
     } catch (error) {
         res.status(404).json({
             ok: false,
-            msg: 'Error catch, Hable con el administrador'
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
+            }
         });
     }
 }
@@ -57,77 +62,45 @@ const createPlaces = async (req = request, res = response) => {
 const getListPlaces = async (req = request, res = response) => {
     try {
 
-        const pool = cnn();
-
         const { listarLugares } = queriePlaces();
 
-        (await pool).query(`${listarLugares}`, (err, result) => {
+        req.getConnection((err, conn) => {
             if (err) {
-                res.status(404).json({
+                return res.status(404).json({
                     ok: false,
-                    msg: 'Error, hable con el administrador'
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
                 });
-                return;
             }
 
-            res.json({
-                ok: true,
-                lugares: result[0]
-            });
+            conn.query(listarLugares, async (error, places) => {
+                if (error) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Error 1, hable con el administrador'
+                        }
+                    });
+                }
 
+                res.json({
+                    ok: true,
+                    lugares: places[0]
+                });
+
+            })
         });
 
     } catch (error) {
         res.status(404).json({
             ok: false,
-            msg: 'Error catch, Hable con el administrador'
-        });
-    }
-}
-
-const updatePlaces = async (req = response, res = response) => {
-    try {
-
-        const id = req.params.id;
-
-        if (id <= 0) {
-            return res.status(404).json({
-                ok: false,
-                msg: 'Error al actualizar, Hable con el administrador'
-            });
-        }
-
-        const { actualizarLugar } = queriePlaces({ ...req.body }, id);
-
-        const pool = cnn();
-
-        (await pool).query(`${actualizarLugar}`, (err, result) => {
-
-            if (err) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Error 2, hable con el administrador'
-                });
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
             }
-
-            const { affectedRows } = result;
-
-            if (affectedRows <= 0) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Ocurrio al eliminar, Hable con el administrador'
-                });
-            }
-
-            return res.json({
-                ok: true
-            });
-        });
-
-    } catch (error) {
-        res.status(404).json({
-            ok: false,
-            msg: 'Error catch, Hable con el administrador'
         });
     }
 }
@@ -140,52 +113,63 @@ const deletePlaces = async (req = request, res = response) => {
         if (id <= 0) {
             return res.status(404).json({
                 ok: false,
-                msg: 'Error al actualizar, Hable con el administrador'
+                er: false,
+                erros: {
+                    msg: 'Error al actualizar, Hable con el administrador'
+                }
             });
-        }
-
-        const { role } = getuser(req.header('x-token'));
-
-        if (role != process.env.ROLE1) {
-            if (err) {
-                return res.status(404).json({
-                    ok: false,
-                    msg: 'Error 1, hable con el administrador'
-                });
-            }
         }
 
         const { eliminarLugar } = queriePlaces({}, id);
 
-        const pool = cnn();
-
-        (await pool).query(`${eliminarLugar}`, (err, result) => {
-
+        req.getConnection((err, conn) => {
             if (err) {
-                return res.status({
-                    ok: false,
-                    msg: 'Error, hable con el administrador'
-                });
-            }
-
-            const { affectedRows } = result;
-
-            if (affectedRows <= 0) {
                 return res.status(404).json({
                     ok: false,
-                    msg: 'Ocurrio al eliminar, Hable con el administrador'
+                    er: false,
+                    erros: {
+                        msg: 'Error 1, hable con el administrador'
+                    }
                 });
             }
 
-            return res.json({
-                ok: true
-            });
-        });
+            conn.query(eliminarLugar, async (error, places) => {
+                if (error) {
+
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Error 2, hable con el administrador'
+                        }
+                    });
+                }
+
+                const { affectedRows } = places;
+
+                if (affectedRows <= 0) {
+                    return res.status(404).json({
+                        ok: false,
+                        er: false,
+                        erros: {
+                            msg: 'Ocurrio al eliminar, Hable con el administrador'
+                        }
+                    });
+                }
+
+                return res.status(200).json({
+                    ok: true
+                });
+            })
+        })
 
     } catch (error) {
         res.status(404).json({
             ok: false,
-            msg: 'Error, hable con el administrador'
+            er: false,
+            erros: {
+                msg: 'Error catch, Hable con el administrador'
+            }
         });
     }
 }
@@ -193,6 +177,5 @@ const deletePlaces = async (req = request, res = response) => {
 module.exports = {
     createPlaces,
     getListPlaces,
-    updatePlaces,
     deletePlaces,
 }

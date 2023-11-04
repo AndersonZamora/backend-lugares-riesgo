@@ -4,6 +4,7 @@ const modelCitizen = {
     celular: '',
     correo: '',
     contrasenia: '',
+    dni: ''
 }
 
 module.exports = {

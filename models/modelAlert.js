@@ -4,6 +4,7 @@ const modelAlert = {
     fecha: '',
     longitud: '',
     latitud: '',
+    estado: ''
 }
 
 module.exports = {

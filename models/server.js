@@ -3,16 +3,16 @@ const http = require('http');
 const socketio = require('socket.io');
 const path = require('path');
 const cors = require('cors');
-
 const Sockets = require('./sockets');
-const { cnn } = require('../database/config');
+const mysql = require('mysql2');
+const myConnection = require('express-myconnection');
 
 class Server {
     constructor() {
-        this.app = express();
-        this.port = process.env.PORT;
 
-        cnn();
+        this.app = express();
+
+        this.port = process.env.PORT;
 
         this.server = http.createServer(this.app);
 
@@ -30,7 +30,13 @@ class Server {
 
         this.app.use(express.json());
 
-        this.app.use('/hero', require('../routes/rHero'));
+        this.app.use(myConnection(mysql, {
+            host: process.env.HOST,
+            user: process.env.USER,
+            password: process.env.PASS,
+            database: process.env.DB,
+        }, 'single'))
+
         this.app.use('/no-roguin-to-toroku', require('../routes/rAll'));
         this.app.use('/kanrisha', require('../routes/rAdmin'));
         this.app.use('/shimin', require('../routes/rCitizen'));

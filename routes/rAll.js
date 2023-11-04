@@ -1,8 +1,8 @@
 const { Router } = require('express');
 const { check } = require('express-validator');
-const { revalidarToken, registrarCitizen, loginCitizen, loginHero, registrarHero, loginSerene } = require('../controllers/cAll')
 const { validarJWT } = require('../middlewares/validar-jwt');
 const { validarCampos } = require('../middlewares/validar-campos');
+const { revalidarToken, registrarCitizen, loginCitizen, loginHero, registrarHero, loginSerene } = require('../controllers/cAll');
 
 const router = Router();
 
@@ -22,7 +22,7 @@ router.post('/atarashi/citizen',
         check('celular', 'Este campo es obligatorio').not().isEmpty().isMobilePhone('es-PE'),
         check('correo', 'Email no válido').isEmail(),
         check('contrasenia', 'Este campo es obligatorio').not().isEmpty().isLength({ min: 4, max: 15 }),
-        // check('state', 'El estado es obligatorio ').not().isEmpty(),
+        check('dni', 'Este campo es obligatorio').not().isEmpty().isLength({ min: 8, max: 8 }),
         validarCampos
     ],
     registrarCitizen

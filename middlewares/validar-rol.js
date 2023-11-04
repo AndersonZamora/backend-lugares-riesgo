@@ -13,7 +13,10 @@ const validarRol = (req, res = response, next) => {
     } catch (error) {
         return res.status(401).json({
             ok: false,
-            msg: 'Sin privilegios'
+            er: false,
+            erros: {
+                msg: 'Sin privilegios'
+            }
         });
     }
 

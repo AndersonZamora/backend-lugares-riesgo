@@ -1,16 +1,21 @@
 const { Router } = require('express');
 const { check } = require('express-validator');
-const { validarCampos } = require('../middlewares/validar-campos');
-const { getListUsers, deleteUser, createSerene, getListSerene, getSerene, deleteSerene } = require('../controllers/adminUser')
 const { validarJWT } = require('../middlewares/validar-jwt');
 const { validarRol } = require('../middlewares/validar-rol');
+const { validarCampos } = require('../middlewares/validar-campos');
+const { getListUsers, deleteUser, createSerene, getListSerene, getSerene, deleteSerene, listAlertCitizenAdmin, deleteAlertUser } = require('../controllers/adminUser');
 
 const router = Router();
 router.use(validarJWT);
 router.use(validarRol);
 
 router.get('/risuto/citizen', getListUsers);
+
+router.get('/risuto/alerts/:id', listAlertCitizenAdmin);
+
 router.delete('/risuto/citizen/:id', deleteUser);
+
+router.delete('/risuto/alerts/user/:id', deleteAlertUser);
 
 router.post('/risuto/serene',
     [
