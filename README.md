@@ -1,4 +1,4 @@
-# React.js LUGARES DE RIESGO
+# Node.js LUGARES DE RIESGO
 
 ## Configurar las variables de entorno
 
